@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EduMaster Learning</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      background-color: #f9f3e5;
+      color: #4e342e;
+    }
+    header {
+      background-color: #d7ccc8;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-size: 1.6em;
+      font-weight: bold;
+      color: #6d4c41;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 1em;
+    }
+    #loginBtn {
+      padding: 8px 16px;
+      background-color: #ffca28;
+      border: none;
+      border-radius: 4px;
+      color: #4e342e;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #userMenu {
+      position: relative;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #usernameDisplay {
+      cursor: pointer;
+      font-weight: bold;
+      color: #6d4c41;
+    }
+    #userAvatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+    }
+    #dropdown {
+      display: none;
+      position: absolute;
+      top: 36px;
+      right: 0;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 6px;
+    }
+    #dropdown button,
+    #dropdown a {
+      display: block;
+      margin: 5px 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      color: #6d4c41;
+    }
+    main {
+      padding: 20px;
+    }
+    #chatSection {
+      display: none;
+      background: #fff3e0;
+      padding: 10px;
+      margin-top: 20px;
+      border-radius: 8px;
+    }
+    #chatBox {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 8px;
+      background: #ffffff;
+      margin-bottom: 10px;
+    }
+    .chatMessage {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .chatMessage img {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    input[type="text"] {
+      width: 75%;
+      padding: 5px;
+    }
+    button {
+      padding: 6px 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">EduMaster Learning</div>
+    <div class="top-right">
+      <button id="loginBtn">Log In</button>
+      <div id="userMenu">
+        <img id="userAvatar" src="" alt="User Avatar" />
+        <div id="usernameDisplay"></div>
+        <div id="dropdown">
+          <a href="settings.html">Settings</a>
+          <button id="logoutBtn">Log Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1>Welcome to EduMaster Learning</h1>
+    <p>
+      EduMaster is your trusted online learning platform for core subjects. Explore resources in Math, Science, History, and more.
+    </p>
+
+    <section id="chatSection">
+      <h2>Class Chat</h2>
+      <div id="chatBox"></div>
+      <input type="text" id="chatInput" placeholder="Type your message... 😊" />
+      <button id="sendBtn">Send</button>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import {
+      getAuth,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      push,
+      onChildAdded,
+      set,
+      get,
+      child
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD31k6XKHpftf-IqLEgfMvtAcI8OQyBoqI",
+      authDomain: "school-test-91012.firebaseapp.com",
+      projectId: "school-test-91012",
+      storageBucket: "school-test-91012.appspot.com",
+      messagingSenderId: "906695439647",
+      appId: "1:906695439647:web:f19c5369600e319a30ec2a",
+      measurementId: "G-Y15HXKENSD"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userMenu = document.getElementById("userMenu");
+    const usernameDisplay = document.getElementById("usernameDisplay");
+    const userAvatar = document.getElementById("userAvatar");
+    const dropdown = document.getElementById("dropdown");
+    const chatBox = document.getElementById("chatBox");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const chatSection = document.getElementById("chatSection");
+
+    loginBtn.onclick = () => window.location.href = "login.html";
+    usernameDisplay.onclick = () => {
+      dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    };
+    logoutBtn.onclick = () => {
+      signOut(auth).then(() => {
+        localStorage.removeItem("username");
+        localStorage.removeItem("avatarUrl");
+        window.location.reload();
+      });
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const uid = user.uid;
+        const userRef = ref(db, `users/${uid}`);
+        const snapshot = await get(userRef);
+        const profile = snapshot.val();
+        const username = profile?.username || user.email.split("@")[0];
+        const avatar = profile?.avatarUrl || "https://via.placeholder.com/30";
+
+        localStorage.setItem("username", username);
+        localStorage.setItem("avatarUrl", avatar);
+
+        usernameDisplay.textContent = username;
+        userAvatar.src = avatar;
+        loginBtn.style.display = "none";
+        userMenu.style.display = "flex";
+        chatSection.style.display = "block";
+
+        push(ref(db, "chat"), {
+          user: "SYSTEM",
+          message: `${username} is online`,
+          timestamp: Date.now()
+        });
+
+        enableChat(username, avatar);
+      } else {
+        loginBtn.style.display = "inline-block";
+        userMenu.style.display = "none";
+        chatSection.innerHTML = '<p>Please <a href="login.html">log in</a> to use the chat.</p>';
+      }
+    });
+
+    function enableChat(username, avatarUrl) {
+      function sendMessage() {
+        const msg = chatInput.value.trim();
+        if (msg) {
+          push(ref(db, "chat"), {
+            user: username,
+            message: msg,
+            avatarUrl,
+            timestamp: Date.now()
+          });
+          chatInput.value = "";
+        }
+      }
+
+      sendBtn.onclick = sendMessage;
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+
+      onChildAdded(ref(db, "chat"), (snapshot) => {
+        const data = snapshot.val();
+        const messageEl = document.createElement("div");
+        messageEl.classList.add("chatMessage");
+
+        if (data.user === "SYSTEM") {
+          messageEl.textContent = data.message;
+        } else {
+          messageEl.innerHTML = `<img src="${data.avatarUrl || 'https://via.placeholder.com/30'}" alt="avatar" /><strong>${data.user}</strong>: ${data.message}`;
+        }
+
+        chatBox.appendChild(messageEl);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      });
+    }
+  </script>
+</body>
+</html>
